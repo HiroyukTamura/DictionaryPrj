@@ -12,16 +12,18 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 
-public class Operator {
+class Operator {
 
     private static final String URL_TEMPLATE = "http://www.mso.anu.edu.au/~ralph/OPTED/v003/wb1913_X.html";
     private static String alphabets = " A · B · C · D · E · F · G · H · I · J · K · L · M · N · O · P · Q · R · S · T · U · V · W · X · Y · Z";
+    private static String extra ="T · U · V · W · X · Y · Z";
     private static String[] alphabetArr;
     private int count = 0;
 
-    private static final String URL = "jdbc:mysql://localhost:3306/DictionaryPrj";
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "";
+    static final String URL = "jdbc:mysql://localhost:3306/DictionaryPrj";
+    static final String USERNAME = "root";
+    static final String PASSWORD = "";
+    static final String TABLE_NAME = "sampletable";
 
     Operator() {
     }
@@ -60,7 +62,7 @@ public class Operator {
     }
 
     private void log(@Nullable String val, @Nullable String define, @NotNull Statement statement) throws SQLException {
-        String sql = "INSERT INTO sampletable VALUES ('" + val + "', '" + define + "', " + count + ");";
+        String sql = "INSERT INTO "+ TABLE_NAME +" VALUES ('" + val + "', '" + define + "', " + count + ");";
         int result = statement.executeUpdate(sql);
         System.out.println("val = [" + val + "], define = [" + define + "]" + " result: " + result);
         count++;
