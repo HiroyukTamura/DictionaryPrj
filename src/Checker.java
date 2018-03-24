@@ -13,28 +13,48 @@ class Checker {
 
     private int start;
     private int end;
+    private static final int OFFSET = 151315;
+
+    static String TABLE_NAME_LOST = "lost_value";
+    private static String COLUMN_1 = "column_1";
+
+    private static final String sql = "SELECT name, definition FROM "+ Operator.TABLE_NAME +" WHERE indexId = ?";
+    private static final String searchSql = "SELECT * FROM "+ Operator.TABLE_NAME +" WHERE definition = ?;";
+    private static final String insertSql =
+            "INSERT INTO "+ TABLE_NAME_LOST +
+            " SELECT * FROM (SELECT ?, ?) AS TMP "+
+            "WHERE NOT EXISTS (SELECT * FROM "+ TABLE_NAME_LOST +" WHERE "+ COLUMN_1 +"=?);";
+
+    private PreparedStatement ps;
+    private PreparedStatement pstmt;
+    private PreparedStatement statement;
+    private Exception exception;
 
     Checker(int start, int end){
-        this.start = start;
-        this.end = end;
+        this.start = start + OFFSET;
+        this.end = end + OFFSET;
 
         System.setProperty("treetagger.home", "C:\\TreeTagger");// ここに本体が必要　\treetagger\bin\tree-tagger.exe　これのことのようです。
     }
 
     void check(){
         try (
-                Connection connection = DriverManager.getConnection(Operator.URL, Operator.USERNAME, Operator.PASSWORD);
-                Statement statement = connection.createStatement()
+                Connection connection = DriverManager.getConnection(Operator.URL, Operator.USERNAME, Operator.PASSWORD)
         ) {
+            ps = connection.prepareStatement(sql);
+            pstmt = connection.prepareStatement(searchSql);
+            statement = connection.prepareStatement(insertSql);
+
             for (int i = start; i <= end; i++) {
-                String sql = "SELECT name, definition FROM "+ Operator.TABLE_NAME +" WHERE indexId = "+ i + ";";
-                System.out.println("sql: " + sql);
-                ResultSet result = statement.executeQuery(sql);
+                ps.setInt(1, i);
+                System.out.println("mysql    > " + ps.toString());
+                ResultSet result = ps.executeQuery();
                 if(!result.next()) {
                     System.out.println("!存在せず!");
                     return;
                 }
                 String definition = result.getString(1);
+                String name = result.getString(2);
                 result.close();
 
                 List<String> list = tokenize(definition);
@@ -42,12 +62,22 @@ class Checker {
 
                 try {
                     tt.setModel("C:\\TreeTagger\\lib\\english-utf8.par");// ここにpar パラメータファイルなるものが必要
+                    final int[] tokenCount = {0};
                     tt.setHandler((TokenHandler<String>) (token, pos, lemma) -> {
-                        searchWord(statement, lemma);
+                        searchWord(connection, lemma, name);
+                        tokenCount[0]++;
+                        if (tokenCount[0] == list.size()){
+                            String errMsg = null;
+                            if (exception != null)
+                                errMsg = exception.getMessage();
+                            new CompletionOperator(start, end, errMsg)
+                                    .recordCompletion();
+                        }
                     });
                     tt.process(list);
                 } catch (IOException | TreeTaggerException e) {
                     e.printStackTrace();
+                    exception = e;
                 } finally {
                     tt.destroy();
                 }
@@ -55,20 +85,26 @@ class Checker {
 
         } catch (SQLException e) {
             e.printStackTrace();
+            exception = e;
         }
     }
 
-    private void searchWord(@NotNull Statement statement, @NotNull String word){
+    private void searchWord(@NotNull Connection connection, @NotNull String word, @NotNull String itemName){
         try {
-            String searchSql = "SELECT * FROM "+ Operator.TABLE_NAME +" WHERE definition = '"+ word + "';";
-            System.out.println("searchSql: "+ searchSql);
-            ResultSet resultSearch = statement.executeQuery(searchSql);
-            if(!resultSearch.isBeforeFirst())
+            pstmt.setString(1, word);
+            ResultSet resultSearch = pstmt.executeQuery();
+            if(!resultSearch.isBeforeFirst()) {
                 System.out.println("!!レコード存在せず!!: "+ word);
+                statement.setString(1, word);
+                statement.setString(2, itemName);
+                statement.setString(3, word);
+                statement.executeUpdate();
+            }
             resultSearch.close();
         } catch (SQLException e) {
             e.printStackTrace();
             System.out.println(e.getMessage()+": "+ word);
+            exception = e;
         }
     }
 
