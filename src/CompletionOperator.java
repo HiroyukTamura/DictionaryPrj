@@ -1,9 +1,8 @@
 import com.sun.istack.internal.NotNull;
 
 import java.sql.*;
-import java.util.Calendar;
 
-public class CompletionOperator {
+class CompletionOperator {
 
     private static final String COMPETE_TABLE_NAME = "completed";
     private static final String COLUMNT_START ="index_start";
@@ -17,8 +16,8 @@ public class CompletionOperator {
     private String extra;
 
     CompletionOperator(int start, int end, @NotNull String extra){
-        this.start = start;
-        this.end = end;
+        this.start = start - Checker.OFFSET;
+        this.end = end - Checker.OFFSET;
         this.extra = extra;
     }
 

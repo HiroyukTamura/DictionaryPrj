@@ -8,12 +8,13 @@ import java.sql.*;
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 class Checker {
 
     private int start;
     private int end;
-    private static final int OFFSET = 151315;
+    static final int OFFSET = 151315;
 
     static String TABLE_NAME_LOST = "lost_value";
     private static String COLUMN_1 = "column_1";
@@ -46,6 +47,15 @@ class Checker {
             statement = connection.prepareStatement(insertSql);
 
             for (int i = start; i <= end; i++) {
+                if (i%10 == 9){
+                    try {
+                        Thread.sleep(TimeUnit.SECONDS.toMillis(10));
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        exception = e;
+                    }
+                }
+
                 ps.setInt(1, i);
                 System.out.println("mysql    > " + ps.toString());
                 ResultSet result = ps.executeQuery();
@@ -63,10 +73,11 @@ class Checker {
                 try {
                     tt.setModel("C:\\TreeTagger\\lib\\english-utf8.par");// ここにpar パラメータファイルなるものが必要
                     final int[] tokenCount = {0};
+                    int finalI = i;
                     tt.setHandler((TokenHandler<String>) (token, pos, lemma) -> {
-                        searchWord(connection, lemma, name);
+                        searchWord(lemma, name);
                         tokenCount[0]++;
-                        if (tokenCount[0] == list.size()){
+                        if (tokenCount[0] == list.size() && finalI == end){
                             String errMsg = null;
                             if (exception != null)
                                 errMsg = exception.getMessage();
@@ -89,12 +100,12 @@ class Checker {
         }
     }
 
-    private void searchWord(@NotNull Connection connection, @NotNull String word, @NotNull String itemName){
+    private void searchWord(@NotNull String word, @NotNull String itemName){
         try {
             pstmt.setString(1, word);
             ResultSet resultSearch = pstmt.executeQuery();
             if(!resultSearch.isBeforeFirst()) {
-                System.out.println("!!レコード存在せず!!: "+ word);
+                System.out.println("!!レコード存在せず!!: "+ word + " itemName: "+ itemName);
                 statement.setString(1, word);
                 statement.setString(2, itemName);
                 statement.setString(3, word);
